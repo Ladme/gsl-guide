@@ -14,5 +14,5 @@
 - [Labeling atoms](labeling.md)
 - [Regular expressions](regex.md)
 - [Important notes](notes.md)
-
+- [Online GSL validator](validator.md)
 - [Feedback and disclaimer](feedback.md)
