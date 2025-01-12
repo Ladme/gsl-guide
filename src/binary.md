@@ -32,7 +32,7 @@ GSL supports combining multiple queries using logical operators to refine select
   name P or resname POPE
   ```
 
-  *Selects atoms named P **+** atoms named POPE.*
+  *Selects atoms named P **+** atoms in residues POPE.*
 
   ```gsl
   resid 17 18 || serial 256 to 271
