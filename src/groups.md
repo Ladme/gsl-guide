@@ -1,6 +1,6 @@
 # Selecting atoms using groups
 
-GSL allows you to create new groups using the previously constructed groups of atoms.
+GSL allows you to select atoms using the previously constructed groups of atoms.
 
 ### Creating groups
 
