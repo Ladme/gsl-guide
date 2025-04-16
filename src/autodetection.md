@@ -1,6 +1,6 @@
 # Selecting atoms by autodetection
 
-GSL offers macros that automatically detect and select common molecular components. These macros simplify selections without needing to specify detailed criteria.
+GSL offers macros that automatically detect and select common molecular components. These macros simplify selections without needing to specify detailed criteria. GSL macros support atomistic, united-atom, and coarse-grained systems.
 
 ### Available macros:
 
