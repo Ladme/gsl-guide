@@ -6,4 +6,4 @@ The selection language is quite similar to the languages used by [VMD](https://w
 
 ***
 
-*This document describes the syntax of GSL v0.9 (corresponding to `groan_rs` v0.9 and v0.10).*
+*This document describes the syntax of GSL v0.11 (corresponding to `groan_rs` v0.11).*
