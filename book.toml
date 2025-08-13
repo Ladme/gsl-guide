@@ -4,3 +4,8 @@ language = "en"
 multilingual = false
 src = "src"
 title = "GSL guide"
+
+[output.html]
+additional-js = []
+additional-css = []
+copy-files = ["src/raw.html"]
