@@ -1,0 +1,1410 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>LLM Dump</title>
+<pre>
+# Introduction
+
+Groan Selection Language (GSL) is a query language for selecting atoms in the [`groan_rs`](https://github.com/Ladme/groan_rs) crate and in programs built on top of it, such as [`gorder`](https://github.com/Ladme/gorder) or [`gcenter`](https://github.com/Ladme/gcenter).
+
+The selection language is quite similar to the languages used by [VMD](https://www.ks.uiuc.edu/Research/vmd/) and [MDAnalysis](https://www.mdanalysis.org/), so if you are familiar with them, GSL should feel quite intuitive. This guide should help you understand and efficiently use GSL both when working directly with the `groan_rs` library and when using applications built on top of it.
+
+***
+
+*This document describes the syntax of GSL v0.11 (corresponding to `groan_rs` v0.11).*# Basic queries
+
+GSL allows you to select atoms based on their attributes. Here's how you can perform basic selections:
+
+### 1. Residue names
+
+Select atoms belonging to residues with specific names.
+
+- **Syntax:** `resname XYZ`
+- **Example:** `resname POPE`
+  
+*Selects all atoms in residues named POPE.*
+
+### 2. Residue numbers
+
+Select atoms based on their residue numbers.
+
+- **Syntax:** `resid XYZ` or `resnum XYZ`
+- **Example:** `resid 17`
+  
+*Selects all atoms in residue number 17.*
+
+### 3. Atom names
+
+Select atoms with specific atom names.
+
+- **Syntax:** `name XYZ` or `atomname XYZ`
+- **Example:** `name P`
+  
+*Selects all atoms named P.*
+
+### 4. Serial atom numbers
+
+Select atoms based on their serial atom numbers as understood by GROMACS.
+
+- **Syntax:** `serial XYZ`
+- **Example:** `serial 256`
+  
+*Selects the atom with serial atom number 256.*
+
+> **Note:** This selection is determined using GROMACS's internal atom numbering, not the numbering found in GRO or PDB files. Here, numbering starts at 1 for the first atom and increases sequentially. Each atom is guaranteed to a have a unique serial number.
+
+### 5. GRO/PDB atom numbers
+
+Select atoms based on their atom numbers in the originating GRO or PDB file.
+
+- **Syntax:** `atomnum XYZ`
+- **Example:** `atomnum 124`
+  
+*Selects all atoms with atom number 124 in the input file.*
+
+> **Note:** There is no guarantee that one specific atom number will be assigned to exactly one atom.
+
+### 6. Chain identifiers
+
+Select atoms belonging to specific chains.
+
+- **Syntax:** `chain X`
+- **Example:** `chain A`
+  
+  *Selects all atoms in chain 'A'.*
+
+> **Note:** Chain information is typically available in PDB files. If absent, this selection will yield no results.
+
+### 7. Element names
+
+Select atoms based on their element names.
+
+- **Syntax:** `element name XYZ` or `elname XYZ`
+- **Example:** `element name carbon`
+  
+*Selects all carbon atoms.*
+
+> **Note:** Element information must be available. If absent, this selection will yield no results. Read more [here](notes.md/#selecting-elements).
+
+### 8. Element symbols
+
+Select atoms based on their element symbols.
+
+- **Syntax:** `element symbol X` or `elsymbol X`
+- **Example:** `element symbol C`
+  
+*Selects all carbon atoms.*
+
+> **Note:** Element information must be available. If absent, this selection will yield no results. Read more [here](notes.md/#selecting-elements).
+
+### 9. Labels
+
+Select atoms using predefined labels.
+
+- **Syntax:** `label XYZ`
+  
+*Labels are discussed in detail [later](labeling.md) in this tutorial.*
+# Multiple identifiers
+
+GSL allows you to specify multiple identifiers within a single query, enabling the selection of atoms matching **any** of the provided criteria.
+
+### Examples:
+
+- **Residue names:**
+  
+  ```gsl
+  resname POPE POPG
+  ```
+
+    *Selects all atoms in residues named POPE or POPG.*
+
+- **Residue numbers:**
+  
+  ```gsl
+  resid 13 15 16 17
+  ```
+
+    *Selects atoms in residues numbered 13, 15, 16, or 17.*
+
+- **Atom names:**
+  
+  ```gsl
+  name P CA HA
+  ```
+
+    *Selects atoms named P, CA, or HA.*
+
+- **Serial numbers:**
+  
+  ```gsl
+  serial 245 267 269 271
+  ```
+
+    *Selects atoms with serial numbers 245, 267, 269, or 271.*
+
+- **Chains:**
+  
+  ```gsl
+  chain A B C
+  ```
+
+    *Selects atoms in chains 'A', 'B', or 'C'.*
+
+- **Element names:**
+  
+  ```gsl
+  elname carbon hydrogen
+  ```
+
+    *Selects all carbon and hydrogen atoms.*
+
+- **Element symbols:**
+  
+  ```gsl
+  elsymbol C H
+  ```
+
+    *Selects all carbon and hydrogen atoms.*
+# Selecting atoms using groups
+
+GSL allows you to select atoms using the previously constructed groups of atoms.
+
+### Creating groups
+
+Before selecting using groups, you must construct them. This is typically done within your workflow or by loading predefined groups, e.g. [from NDX files](#loading-groups-from-ndx-files).
+
+### Selecting groups
+
+- **Syntax:**
+  
+  ```gsl
+  group GroupName1 GroupName2
+  ```
+
+  *Or simply:*
+
+  ```gsl
+  GroupName1 GroupName2
+  ```
+
+- **Example:**
+  
+  ```gsl
+  Protein Membrane
+  ```
+
+  *Selects all atoms in the groups named "Protein" and "Membrane".*
+
+> **Important:** If a specified group does not exist, an error will be raised.
+
+### Loading groups from NDX files
+
+If you've loaded an NDX file using [`System::read_ndx`](https://docs.rs/groan_rs/latest/groan_rs/system/struct.System.html#method.read_ndx), you can utilize groups defined within that file.
+
+> **Note:** If a program using `groan_rs` loads an NDX file, you will typically be able to select groups defined in the NDX file.
+
+### Groups with multiple words
+
+For groups with names comprising multiple words, enclose the group name in quotes.
+
+- **Example:**
+  
+  ```gsl
+  Protein 'My Lipids'
+  ```
+
+  *Selects atoms in the "Protein" group and the "My Lipids" group.*
+# Selecting atoms by autodetection
+
+GSL offers macros that automatically detect and select common molecular components. These macros simplify selections without needing to specify detailed criteria. GSL macros support atomistic, united-atom, and coarse-grained systems.
+
+### Available macros:
+
+- `@protein`: Selects all amino acid atoms (supports ~140 different amino acids).
+- `@water`: Selects all water atoms.
+- `@ion`: Selects all ion atoms.
+- `@membrane`: Selects membrane lipid atoms.
+- `@dna`: Selects all DNA molecule atoms.
+- `@rna`: Selects all RNA molecule atoms.
+
+### Example usage:
+
+```gsl
+@protein or @membrane
+```
+
+*Selects all protein and membrane lipid atoms.*
+
+> **Caution:** While these macros are generally reliable, they may not always perfectly identify all relevant atoms. Use them judiciously, especially when working with custom molecules.
+
+### Macro definitions:
+
+The following list shows how GSL macros currently expand. Note that these definitions may change in future versions to support additional atom matching:
+
+- `@protein` = `resname ABU ACE AIB ALA ARG ARGN ASN ASN1 ASP ASP1 ASPH ASPP ASH CT3 CYS CYS1 CYS2 CYSH DALA GLN GLU GLUH GLUP GLH GLY HIS HIS1 HISA HISB HISH HISD HISE HISP HSD HSE HSP HYP ILE LEU LSN LYS LYSN LYSH MELEU MET MEVAL NAC NME NHE NH2 PHE PHEH PHEU PHL PRO SER THR TRP TRPH TRPU TYR TYRH TYRU VAL PGLU HID HIE HIP LYP LYN CYN CYM CYX DAB ORN HYP NALA NGLY NSER NTHR NLEU NILE NVAL NASN NGLN NARG NHID NHIE NHIP NHISD NHISE NHISH NTRP NPHE NTYR NGLU NASP NLYS NORN NDAB NLYSN NPRO NHYP NCYS NCYS2 NMET NASPH NGLUH CALA CGLY CSER CTHR CLEU CILE CVAL CASN CGLN CARG CHID CHIE CHIP CHISD CHISE CHISH CTRP CPHE CTYR CGLU CASP CLYS CORN CDAB CLYSN CPRO CHYP CCYS CCYS2 CMET CASPH CGLUH`
+- `@water` = `name W OW HW1 HW2 OH2 H1 H2 and resname SOL WAT HOH OHH TIP T3P T4P T5P T3H W TIP3 TIP4 SPC SPCE`
+- `@ion` = `name NA NA+ CL CL- K K+ SOD CLA CA CA2+ MG ZN CU1 CU LI RB CS F BR I OH Cal CAL IB+ and resname ION NA NA+ CL CL- K K+ SOD CLA CA CA2+ MG ZN CU1 CU LI RB CS F BR I OH Cal CAL IB+`
+- `@membrane` = `resname r'^[A-Za-z]{2}(PA|PC|PE|PG|PS|PI|GL|DG)$' r'^[A-Za-z]{3}TG' r'.+CL' r'^CER' r'.+SM$' TOG APC CPC IPC LPC OPC PPC TPC UPC VPC XNCE DBG1 DPG1 DPG3 DPGS DXG1 DXG3 PNG1 PNG3 XNG1 XNG3 DFGG DFMG DPGG DPMG DPSG FPGG FPMG FPSG OPGG OPMG OPSG CHOA CHOL CHYO BOG DDM DPC EO5 SDS BOLA BOLB CDL0 CDL1 CDL2 CDL DBG3 ERGO HBHT HDPT HHOP HOPR ACA ACN BCA BCN LCA LCN PCA PCN UCA UCN XCA XCN RAMP REMP OANT POPP1 POPP2 POPP3 DOPP1 DOPP2 DOPP3 POP1 POP2 POP3 DOP1 DOP2 DOP3`
+- `@dna` = `resname DA DG DC DT DA5 DG5 DC5 DT5 DA3 DG3 DC3 DT3 DAN DGN DCN DTN`
+- `@rna` = `resname A U C G RA RU RC RG RA5 RT5 RU5 RC5 RG5 RA3 RT3 RU3 RC3 RG3 RAN RTN RUN RCN RGN`
+
+### Note about older versions of GSL:
+
+In GSL versions <0.11 (`groan_rs` v0.10 and older), the `@membrane` macro was defined followingly:
+- `@membrane` = `resname DAPC DBPC DFPC DGPC DIPC DLPC DNPC DOPC DPPC DUPC DRPC DTPC DVPC DXPC DYPC LPPC PAPC PEPC PGPC PIPC POPC PRPC PUPC DAPE DBPE DFPE DGPE DIPE DLPE DNPE DOPE DPPE DRPE DTPE DUPE DVPE DXPE DYPE LPPE PAPE PGPE PIPE POPE PQPE PRPE PUPE DAPS DBPS DFPS DGPS DIPS DLPS DNPS DOPS DPPS DRPS DTPS DUPS DVPS DXPS DYPS LPPS PAPS PGPS PIPS POPS PQPS PRPS PUPS DAPG DBPG DFPG DGPG DIPG DLPG DNPG DOPG DPPG DRPG DTPG DVPG DXPG DYPG JFPG JPPG LPPG OPPG PAPG PGPG PIPG POPG PRPG DAPA DBPA DFPA DGPA DIPA DLPA DNPA DOPA DPPA DRPA DTPA DVPA DXPA DYPA LPPA PAPA PGPA PIPA POPA PRPA PUPA DPP1 DPP2 DPPI PAPI PIPI POP1 POP2 POP3 POPI PUPI PVP1 PVP2 PVP3 PVPI PADG PIDG PODG PUDG PVDG TOG APC CPC IPC LPC OPC PPC TPC UPC VPC BNSM DBSM DPSM DXSM PGSM PNSM POSM PVSM XNSM DPCE DXCE PNCE XNCE DBG1 DPG1 DPG3 DPGS DXG1 DXG3 PNG1 PNG3 XNG1 XNG3 DFGG DFMG DPGG DPMG DPSG FPGG FPMG FPSG OPGG OPMG OPSG CHOA CHOL CHYO BOG DDM DPC EO5 SDS BOLA BOLB CDL0 CDL1 CDL2 CDL DBG3 ERGO HBHT HDPT HHOP HOPR ACA ACN BCA BCN LCA LCN PCA PCN UCA UCN XCA XCN RAMP REMP OANT`
+
+> This version of the `@membrane` macro is used in `gorder` versions ≤1.0.0 and `gcenter` versions ≤2.0.0.# Introduction
+
+Groan Selection Language (GSL) is a query language for selecting atoms in the [`groan_rs`](https://github.com/Ladme/groan_rs) crate and in programs built on top of it, such as [`gorder`](https://github.com/Ladme/gorder) or [`gcenter`](https://github.com/Ladme/gcenter).
+
+The selection language is quite similar to the languages used by [VMD](https://www.ks.uiuc.edu/Research/vmd/) and [MDAnalysis](https://www.mdanalysis.org/), so if you are familiar with them, GSL should feel quite intuitive. This guide should help you understand and efficiently use GSL both when working directly with the `groan_rs` library and when using applications built on top of it.
+
+***
+
+*This document describes the syntax of GSL v0.11 (corresponding to `groan_rs` v0.11).*# Basic queries
+
+GSL allows you to select atoms based on their attributes. Here's how you can perform basic selections:
+
+### 1. Residue names
+
+Select atoms belonging to residues with specific names.
+
+- **Syntax:** `resname XYZ`
+- **Example:** `resname POPE`
+  
+*Selects all atoms in residues named POPE.*
+
+### 2. Residue numbers
+
+Select atoms based on their residue numbers.
+
+- **Syntax:** `resid XYZ` or `resnum XYZ`
+- **Example:** `resid 17`
+  
+*Selects all atoms in residue number 17.*
+
+### 3. Atom names
+
+Select atoms with specific atom names.
+
+- **Syntax:** `name XYZ` or `atomname XYZ`
+- **Example:** `name P`
+  
+*Selects all atoms named P.*
+
+### 4. Serial atom numbers
+
+Select atoms based on their serial atom numbers as understood by GROMACS.
+
+- **Syntax:** `serial XYZ`
+- **Example:** `serial 256`
+  
+*Selects the atom with serial atom number 256.*
+
+> **Note:** This selection is determined using GROMACS's internal atom numbering, not the numbering found in GRO or PDB files. Here, numbering starts at 1 for the first atom and increases sequentially. Each atom is guaranteed to a have a unique serial number.
+
+### 5. GRO/PDB atom numbers
+
+Select atoms based on their atom numbers in the originating GRO or PDB file.
+
+- **Syntax:** `atomnum XYZ`
+- **Example:** `atomnum 124`
+  
+*Selects all atoms with atom number 124 in the input file.*
+
+> **Note:** There is no guarantee that one specific atom number will be assigned to exactly one atom.
+
+### 6. Chain identifiers
+
+Select atoms belonging to specific chains.
+
+- **Syntax:** `chain X`
+- **Example:** `chain A`
+  
+  *Selects all atoms in chain 'A'.*
+
+> **Note:** Chain information is typically available in PDB files. If absent, this selection will yield no results.
+
+### 7. Element names
+
+Select atoms based on their element names.
+
+- **Syntax:** `element name XYZ` or `elname XYZ`
+- **Example:** `element name carbon`
+  
+*Selects all carbon atoms.*
+
+> **Note:** Element information must be available. If absent, this selection will yield no results. Read more [here](notes.md/#selecting-elements).
+
+### 8. Element symbols
+
+Select atoms based on their element symbols.
+
+- **Syntax:** `element symbol X` or `elsymbol X`
+- **Example:** `element symbol C`
+  
+*Selects all carbon atoms.*
+
+> **Note:** Element information must be available. If absent, this selection will yield no results. Read more [here](notes.md/#selecting-elements).
+
+### 9. Labels
+
+Select atoms using predefined labels.
+
+- **Syntax:** `label XYZ`
+  
+*Labels are discussed in detail [later](labeling.md) in this tutorial.*
+# Multiple identifiers
+
+GSL allows you to specify multiple identifiers within a single query, enabling the selection of atoms matching **any** of the provided criteria.
+
+### Examples:
+
+- **Residue names:**
+  
+  ```gsl
+  resname POPE POPG
+  ```
+
+    *Selects all atoms in residues named POPE or POPG.*
+
+- **Residue numbers:**
+  
+  ```gsl
+  resid 13 15 16 17
+  ```
+
+    *Selects atoms in residues numbered 13, 15, 16, or 17.*
+
+- **Atom names:**
+  
+  ```gsl
+  name P CA HA
+  ```
+
+    *Selects atoms named P, CA, or HA.*
+
+- **Serial numbers:**
+  
+  ```gsl
+  serial 245 267 269 271
+  ```
+
+    *Selects atoms with serial numbers 245, 267, 269, or 271.*
+
+- **Chains:**
+  
+  ```gsl
+  chain A B C
+  ```
+
+    *Selects atoms in chains 'A', 'B', or 'C'.*
+
+- **Element names:**
+  
+  ```gsl
+  elname carbon hydrogen
+  ```
+
+    *Selects all carbon and hydrogen atoms.*
+
+- **Element symbols:**
+  
+  ```gsl
+  elsymbol C H
+  ```
+
+    *Selects all carbon and hydrogen atoms.*
+# Selecting atoms using groups
+
+GSL allows you to select atoms using the previously constructed groups of atoms.
+
+### Creating groups
+
+Before selecting using groups, you must construct them. This is typically done within your workflow or by loading predefined groups, e.g. [from NDX files](#loading-groups-from-ndx-files).
+
+### Selecting groups
+
+- **Syntax:**
+  
+  ```gsl
+  group GroupName1 GroupName2
+  ```
+
+  *Or simply:*
+
+  ```gsl
+  GroupName1 GroupName2
+  ```
+
+- **Example:**
+  
+  ```gsl
+  Protein Membrane
+  ```
+
+  *Selects all atoms in the groups named "Protein" and "Membrane".*
+
+> **Important:** If a specified group does not exist, an error will be raised.
+
+### Loading groups from NDX files
+
+If you've loaded an NDX file using [`System::read_ndx`](https://docs.rs/groan_rs/latest/groan_rs/system/struct.System.html#method.read_ndx), you can utilize groups defined within that file.
+
+> **Note:** If a program using `groan_rs` loads an NDX file, you will typically be able to select groups defined in the NDX file.
+
+### Groups with multiple words
+
+For groups with names comprising multiple words, enclose the group name in quotes.
+
+- **Example:**
+  
+  ```gsl
+  Protein 'My Lipids'
+  ```
+
+  *Selects atoms in the "Protein" group and the "My Lipids" group.*
+# Selecting atoms by autodetection
+
+GSL offers macros that automatically detect and select common molecular components. These macros simplify selections without needing to specify detailed criteria. GSL macros support atomistic, united-atom, and coarse-grained systems.
+
+### Available macros:
+
+- `@protein`: Selects all amino acid atoms (supports ~140 different amino acids).
+- `@water`: Selects all water atoms.
+- `@ion`: Selects all ion atoms.
+- `@membrane`: Selects membrane lipid atoms.
+- `@dna`: Selects all DNA molecule atoms.
+- `@rna`: Selects all RNA molecule atoms.
+
+### Example usage:
+
+```gsl
+@protein or @membrane
+```
+
+*Selects all protein and membrane lipid atoms.*
+
+> **Caution:** While these macros are generally reliable, they may not always perfectly identify all relevant atoms. Use them judiciously, especially when working with custom molecules.
+
+### Macro definitions:
+
+The following list shows how GSL macros currently expand. Note that these definitions may change in future versions to support additional atom matching:
+
+- `@protein` = `resname ABU ACE AIB ALA ARG ARGN ASN ASN1 ASP ASP1 ASPH ASPP ASH CT3 CYS CYS1 CYS2 CYSH DALA GLN GLU GLUH GLUP GLH GLY HIS HIS1 HISA HISB HISH HISD HISE HISP HSD HSE HSP HYP ILE LEU LSN LYS LYSN LYSH MELEU MET MEVAL NAC NME NHE NH2 PHE PHEH PHEU PHL PRO SER THR TRP TRPH TRPU TYR TYRH TYRU VAL PGLU HID HIE HIP LYP LYN CYN CYM CYX DAB ORN HYP NALA NGLY NSER NTHR NLEU NILE NVAL NASN NGLN NARG NHID NHIE NHIP NHISD NHISE NHISH NTRP NPHE NTYR NGLU NASP NLYS NORN NDAB NLYSN NPRO NHYP NCYS NCYS2 NMET NASPH NGLUH CALA CGLY CSER CTHR CLEU CILE CVAL CASN CGLN CARG CHID CHIE CHIP CHISD CHISE CHISH CTRP CPHE CTYR CGLU CASP CLYS CORN CDAB CLYSN CPRO CHYP CCYS CCYS2 CMET CASPH CGLUH`
+- `@water` = `name W OW HW1 HW2 OH2 H1 H2 and resname SOL WAT HOH OHH TIP T3P T4P T5P T3H W TIP3 TIP4 SPC SPCE`
+- `@ion` = `name NA NA+ CL CL- K K+ SOD CLA CA CA2+ MG ZN CU1 CU LI RB CS F BR I OH Cal CAL IB+ and resname ION NA NA+ CL CL- K K+ SOD CLA CA CA2+ MG ZN CU1 CU LI RB CS F BR I OH Cal CAL IB+`
+- `@membrane` = `resname r'^[A-Za-z]{2}(PA|PC|PE|PG|PS|PI|GL|DG)$' r'^[A-Za-z]{3}TG' r'.+CL' r'^CER' r'.+SM$' TOG APC CPC IPC LPC OPC PPC TPC UPC VPC XNCE DBG1 DPG1 DPG3 DPGS DXG1 DXG3 PNG1 PNG3 XNG1 XNG3 DFGG DFMG DPGG DPMG DPSG FPGG FPMG FPSG OPGG OPMG OPSG CHOA CHOL CHYO BOG DDM DPC EO5 SDS BOLA BOLB CDL0 CDL1 CDL2 CDL DBG3 ERGO HBHT HDPT HHOP HOPR ACA ACN BCA BCN LCA LCN PCA PCN UCA UCN XCA XCN RAMP REMP OANT POPP1 POPP2 POPP3 DOPP1 DOPP2 DOPP3 POP1 POP2 POP3 DOP1 DOP2 DOP3`
+- `@dna` = `resname DA DG DC DT DA5 DG5 DC5 DT5 DA3 DG3 DC3 DT3 DAN DGN DCN DTN`
+- `@rna` = `resname A U C G RA RU RC RG RA5 RT5 RU5 RC5 RG5 RA3 RT3 RU3 RC3 RG3 RAN RTN RUN RCN RGN`
+
+### Note about older versions of GSL:
+
+In GSL versions <0.11 (`groan_rs` v0.10 and older), the `@membrane` macro was defined followingly:
+- `@membrane` = `resname DAPC DBPC DFPC DGPC DIPC DLPC DNPC DOPC DPPC DUPC DRPC DTPC DVPC DXPC DYPC LPPC PAPC PEPC PGPC PIPC POPC PRPC PUPC DAPE DBPE DFPE DGPE DIPE DLPE DNPE DOPE DPPE DRPE DTPE DUPE DVPE DXPE DYPE LPPE PAPE PGPE PIPE POPE PQPE PRPE PUPE DAPS DBPS DFPS DGPS DIPS DLPS DNPS DOPS DPPS DRPS DTPS DUPS DVPS DXPS DYPS LPPS PAPS PGPS PIPS POPS PQPS PRPS PUPS DAPG DBPG DFPG DGPG DIPG DLPG DNPG DOPG DPPG DRPG DTPG DVPG DXPG DYPG JFPG JPPG LPPG OPPG PAPG PGPG PIPG POPG PRPG DAPA DBPA DFPA DGPA DIPA DLPA DNPA DOPA DPPA DRPA DTPA DVPA DXPA DYPA LPPA PAPA PGPA PIPA POPA PRPA PUPA DPP1 DPP2 DPPI PAPI PIPI POP1 POP2 POP3 POPI PUPI PVP1 PVP2 PVP3 PVPI PADG PIDG PODG PUDG PVDG TOG APC CPC IPC LPC OPC PPC TPC UPC VPC BNSM DBSM DPSM DXSM PGSM PNSM POSM PVSM XNSM DPCE DXCE PNCE XNCE DBG1 DPG1 DPG3 DPGS DXG1 DXG3 PNG1 PNG3 XNG1 XNG3 DFGG DFMG DPGG DPMG DPSG FPGG FPMG FPSG OPGG OPMG OPSG CHOA CHOL CHYO BOG DDM DPC EO5 SDS BOLA BOLB CDL0 CDL1 CDL2 CDL DBG3 ERGO HBHT HDPT HHOP HOPR ACA ACN BCA BCN LCA LCN PCA PCN UCA UCN XCA XCN RAMP REMP OANT`
+
+> This version of the `@membrane` macro is used in `gorder` versions ≤1.0.0 and `gcenter` versions ≤2.0.0.# Ranges
+
+GSL allows you to specify ranges of residue or atom numbers.
+
+### Specifying ranges
+
+- **Using `to`:**
+  
+  ```gsl
+  resid 14 to 20
+  ```
+
+  *Selects atoms in residues numbered 14 through 20 (including 20).*
+
+- **Using `-`:**
+  
+  ```gsl
+  resid 14-20
+  ```
+
+  *Equivalent to `resid 14 to 20`.*
+
+### Combining with multiple ranges and numbers
+
+You can mix explicit numbers with ranges for more complex selections.
+
+- **Example:**
+  
+  ```gsl
+  serial 1 3 to 6 10 12-14 17
+  ```
+
+  *Expands to selecting serial numbers 1, 3, 4, 5, 6, 10, 12, 13, 14, and 17.*
+
+### Open-ended ranges
+
+GSL supports open-ended ranges using comparison operators.
+
+- **Operators:**
+  - `<` : Less than
+  - `>` : Greater than
+  - `<=`: Less than or equal to
+  - `>=`: Greater than or equal to
+
+- **Examples:**
+  
+  ```gsl
+  serial <= 180
+  ```
+
+  *Selects all atoms with serial numbers ≤ 180.*
+  
+  ```gsl
+  resid > 33
+  ```
+
+  *Selects atoms in residues numbered 34 and above.*
+
+### Combining open-ended and explicit selections
+
+- **Example:**
+  
+  ```gsl
+  serial 1 3-6 >=20
+  ```
+
+  *Selects atoms with serial numbers 1, 3, 4, 5, 6, and 20 or higher.*
+
+# Negations
+
+GSL allows you to exclude certain atoms from your selection using negation operators.
+
+- **Syntax:**
+  
+  ```gsl
+  not <query>
+  ```
+
+  *Or:*
+
+  ```gsl
+  ! <query>
+  ```
+
+- **Examples:**
+  
+  ```gsl
+  not name CA
+  ```
+
+  *Selects all atoms **not** named CA.*
+  
+  ```gsl
+  ! name CA
+  ```
+
+  *Equivalent to the above.*
+  
+  ```gsl
+  not resname POPE POPG
+  ```
+
+  *Selects atoms not in residues named POPE or POPG.*
+  
+  ```gsl
+  !Protein
+  ```
+
+  *Selects atoms not in the group named "Protein".*
+# Binary operations
+
+GSL supports combining multiple queries using logical operators to refine selections further.
+
+### Logical AND
+
+- **Operators:** `and` or `&&`
+- **Function:** Selects atoms that satisfy **both** queries.
+
+- **Examples:**
+  
+  ```gsl
+  name P and resname POPE
+  ```
+
+  *Selects atoms named P in residues named POPE.*
+
+  ```gsl
+  serial 256 to 271 && resid 17 18
+  ```
+
+  *Selects atoms with serial numbers between 256 and 271 in residues 17 or 18.*
+
+### Logical OR
+
+- **Operators:** `or` or `||`
+- **Function:** Selects atoms that satisfy **at least one** of the queries. Can be understood as an addition (**+**) operation.
+
+- **Examples:**
+  
+  ```gsl
+  name P or resname POPE
+  ```
+
+  *Selects atoms named P **+** atoms in residues POPE.*
+
+  ```gsl
+  resid 17 18 || serial 256 to 271
+  ```
+
+  *Selects atoms in residues 17 or 18 **+** atoms with serial numbers between 256 and 271.*
+
+### Operator precedence
+
+When combining multiple `and` and `or` operators, GSL evaluates them from **left to right**.
+
+- **Example:**
+  
+  ```gsl
+  resname POPE or name CA and not Protein
+  ```
+
+  *Interpreted as:*  
+  *(resname POPE **or** name CA) **and not** Protein*
+
+  *Selects atoms in residues named POPE **+** atoms named CA **−** (minus) atoms that are part of the "Protein" group.*
+
+### Combining with autodetection macros
+
+You can mix autodetection macros with other queries using logical operators.
+
+- **Example:**
+  
+  ```gsl
+  @membrane or group 'My Lipids'
+  ```
+
+  *Selects all autodetected membrane lipids **+** atoms in the "My Lipids" group.*
+
+# Parentheses
+
+Parentheses allow you to control the evaluation order of your queries.
+
+### Changing evaluation order
+
+Use parentheses to group queries and dictate the sequence of operations.
+
+- **Example:**
+  
+  ```gsl
+  resname POPE or (name CA and not resid 18 to 21)
+  ```
+
+  *Selects atoms in residues named POPE **+** atoms named CA which are not in residues 18 to 21.*
+
+- **Changing the position of parentheses:**
+  
+  ```gsl
+  (name CA or resname POPE) and not resid 18 to 21
+  ```
+
+  *Selects atoms which are either named CA or in residues named POPE, **but are not** in residues 18 to 21.*
+
+### Nested Parentheses
+
+You can nest parentheses to create complex selection logic.
+
+- **Example:**
+  
+  ```gsl
+  serial 1 to 6 or (name CA and resname POPE || (resid 1 to 7 or serial 123 to 128)) and Protein
+  ```
+
+  *A valid, albeit complex, query that combines multiple conditions.*
+
+### Negating Parenthetical Expressions
+
+You can apply negation to entire parenthetical groups.
+
+- **Example:**
+  
+  ```gsl
+  !(serial 1 to 6 && name P)
+  ```
+
+  *Selects atoms that **do not** have serial numbers between 1 and 6 while being named P.*
+
+# Selecting molecules
+
+GSL provides operators to select entire molecules (i.e., groups of bonded atoms) based on specific criteria.
+
+### `molecule with` (or `mol with`) operator
+
+- **Function:** Selects all atoms in the same molecule(s) as the atoms matching the inner query.
+
+- **Syntax:**
+  
+  ```gsl
+  molecule with <query>
+  ```
+
+  *Or:*
+
+  ```gsl
+  mol with <query>
+  ```
+
+- **Examples:**
+  
+  ```gsl
+  molecule with serial 15
+  ```
+
+  *Selects all atoms in the molecule containing the atom with serial number 15.*
+  
+  ```gsl
+  molecule with resid 4 17 29
+  ```
+
+  *Selects all atoms in molecules containing any atom from residues 4, 17, or 29.*
+  
+  ```gsl
+  molecule with name P
+  ```
+
+  *Selects all atoms in molecules that include an atom named P.*
+
+### Operator precedence with `molecule with`
+
+- **Example 1:**
+  
+  ```gsl
+  molecule with serial 15 or name BB
+  ```
+
+  *Selects atoms in the molecule containing serial 15 **+** selects atoms named BB.*
+
+- **Example 2:**
+  
+  ```gsl
+  molecule with (serial 15 or name BB)
+  ```
+
+  *Selects all atoms in molecules that contain either atom 15 **or** any atom named BB.*
+
+
+> **Note:**
+> - **Topology requirement:** The system must contain topology information to use molecule selections. Without it, no atoms will be selected. Topology information is available, for instance, in TPR files and some PDB files.
+
+# Labeling atoms
+
+If atoms are labeled (using [`System::label_atom`](https://docs.rs/groan_rs/latest/groan_rs/system/struct.System.html#method.label_atom)), you can use these labels in your GSL queries.
+
+- **Syntax:**
+  
+  ```gsl
+  label XYZ
+  ```
+
+- **Examples:**
+  
+  ```gsl
+  label MyAtom
+  ```
+
+  *Selects the atom labeled "MyAtom".*
+  
+  ```gsl
+  label MyAtom AnotherAtom OneMoreAtom
+  ```
+
+  *Selects atoms labeled "MyAtom", "AnotherAtom", and "OneMoreAtom".*
+
+### Labels with multiple words
+
+For labels consisting of multiple words, enclose them in quotes.
+
+- **Example:**
+  
+  ```gsl
+  label 'Very interesting atom'
+  ```
+
+  *Selects the atom labeled "Very interesting atom".*
+
+> **Comparison with groups:**  
+> Labels are similar to groups but are guaranteed to contain **only one atom** each.
+
+# Regular expressions
+
+GSL supports the use of regular expressions (regex).
+
+### Using regular expressions
+
+You can apply regex patterns to various identifiers: atom names, residue names, group names, element names, element symbols, and labels.
+
+- **Syntax:**
+  
+  ```gsl
+  identifier r'<pattern>'
+  ```
+
+- **Examples:**
+  
+  ```gsl
+  name r'^[1-9]?H.*'
+  ```
+
+  *Selects all atoms with names matching the regex pattern (typically hydrogen atoms).*
+  
+  ```gsl
+  resname r'^.*PC'
+  ```
+
+  *Selects all residues with names ending in "PC".*
+  
+  ```gsl
+  group r'^P'
+  ```
+
+  *Selects all groups with names starting with 'P'.*
+
+### Combining regular expressions with other identifiers
+
+You can mix regex-based identifiers with standard identifiers in a single query.
+
+- **Examples:**
+  
+  ```gsl
+  name r'^C.*' and resname ALA GLY
+  ```
+
+  *Selects atoms with names starting with 'C' in residues named ALA or GLY.*
+
+  ```gsl
+  name P r'^[1-9]?H.*'
+  ```
+  
+  *Selects atoms named 'P' and hydrogen atoms.*
+
+### Syntax rules
+
+- **Enclosure:**  
+  The regex pattern must be enclosed within a "regular expression block" starting with `r'` and ending with `'`.
+
+- **Case sensitivity:**  
+  Regex patterns are case-sensitive unless specified otherwise within the pattern.
+
+### Supported regex features
+
+GSL uses the `regex` crate for evaluating regular expressions. For detailed information on supported regex features, refer to the [official documentation](https://docs.rs/regex/latest/regex/).
+
+# Important notes
+
+### Selecting Elements
+
+- **Element assignment:**  
+  Atoms in the system **are not** automatically assigned elements by `groan_rs` unless the elements are explicitly specified in the input structure file. *This is because elements may not always be meaningful, particularly in coarse-grained systems.*
+
+- **Using `element` keywords:**  
+  To use `element name` or `element symbol` in your selections, ensure that atoms have been assigned elements.
+
+- **Assigning elements:**
+  - **From topology files:** Creating the `System` structure from a TPR file automatically assigns elements.
+  - **Guessing elements:** Use the [`System::guess_elements`](https://docs.rs/groan_rs/latest/groan_rs/system/struct.System.html#method.guess_elements) function to assign elements based on atom names.
+
+- **Recommendation:**  
+  If you're using a program that utilizes GSL, ensure that it assigns elements to atoms before using `element` keywords in selections.
+
+### Whitespace considerations
+
+- **Operator and parenthesis separation:**  
+  Operators (`and`, `or`, `not`, etc.) and parentheses do **not** need to be separated by whitespace unless it affects query clarity.
+
+- **Valid example:**
+  
+  ```gsl
+  not(name CA)or(serial 1to45||Protein)
+  ```
+  
+  *A valid query without (unnecessary) whitespace.*
+
+- **Invalid example:**
+  
+  ```gsl
+  not(name CA)or(serial 1to45orProtein)
+  ```
+  
+  *Invalid because `orProtein` is unclear.*
+
+- **Resolving ambiguity:**
+  
+  Enclose ambiguous parts in parentheses to clarify intent. **Or use whitespace, it is worth it.**
+  
+  ```gsl
+  not(name CA)or(serial 1to45or(Protein))
+  ```
+  
+  *Now, the query is valid and interpretable, but not very human-readable.*
+# Online GSL validator
+
+You can easily verify the validity of your GSL query using the [online validation tool](https://ladme.github.io/gsl-validator/).
+
+> **Note:** This tool checks only the general syntax of the query. It does not account for the specific context of your molecular system. Queries that reference non-existent groups in your system will still be considered valid syntactically but will fail during execution. The tool focuses solely on syntactical correctness and cannot interpret your intent. For example, the query `resname POPC name P` is syntactically valid but will probably not achieve the desired outcome.# Feedback and disclaimer
+
+Have questions or encountered an issue? Open a [GitHub issue](https://github.com/Ladme/groan_rs/issues) for the `groan_rs` crate or send an email to `ladmeb@gmail.com`.
+
+<div class="warning">
+The groan_rs crate and GSL are currently unstable, and the language may undergo changes in future versions.
+</div>
+
+***
+
+*This guide was largely generated by a large language model (ChatGPT) based on the provided GSL specification.*# Ranges
+
+GSL allows you to specify ranges of residue or atom numbers.
+
+### Specifying ranges
+
+- **Using `to`:**
+  
+  ```gsl
+  resid 14 to 20
+  ```
+
+  *Selects atoms in residues numbered 14 through 20 (including 20).*
+
+- **Using `-`:**
+  
+  ```gsl
+  resid 14-20
+  ```
+
+  *Equivalent to `resid 14 to 20`.*
+
+### Combining with multiple ranges and numbers
+
+You can mix explicit numbers with ranges for more complex selections.
+
+- **Example:**
+  
+  ```gsl
+  serial 1 3 to 6 10 12-14 17
+  ```
+
+  *Expands to selecting serial numbers 1, 3, 4, 5, 6, 10, 12, 13, 14, and 17.*
+
+### Open-ended ranges
+
+GSL supports open-ended ranges using comparison operators.
+
+- **Operators:**
+  - `<` : Less than
+  - `>` : Greater than
+  - `<=`: Less than or equal to
+  - `>=`: Greater than or equal to
+
+- **Examples:**
+  
+  ```gsl
+  serial <= 180
+  ```
+
+  *Selects all atoms with serial numbers ≤ 180.*
+  
+  ```gsl
+  resid > 33
+  ```
+
+  *Selects atoms in residues numbered 34 and above.*
+
+### Combining open-ended and explicit selections
+
+- **Example:**
+  
+  ```gsl
+  serial 1 3-6 >=20
+  ```
+
+  *Selects atoms with serial numbers 1, 3, 4, 5, 6, and 20 or higher.*
+
+# Negations
+
+GSL allows you to exclude certain atoms from your selection using negation operators.
+
+- **Syntax:**
+  
+  ```gsl
+  not <query>
+  ```
+
+  *Or:*
+
+  ```gsl
+  ! <query>
+  ```
+
+- **Examples:**
+  
+  ```gsl
+  not name CA
+  ```
+
+  *Selects all atoms **not** named CA.*
+  
+  ```gsl
+  ! name CA
+  ```
+
+  *Equivalent to the above.*
+  
+  ```gsl
+  not resname POPE POPG
+  ```
+
+  *Selects atoms not in residues named POPE or POPG.*
+  
+  ```gsl
+  !Protein
+  ```
+
+  *Selects atoms not in the group named "Protein".*
+# Binary operations
+
+GSL supports combining multiple queries using logical operators to refine selections further.
+
+### Logical AND
+
+- **Operators:** `and` or `&&`
+- **Function:** Selects atoms that satisfy **both** queries.
+
+- **Examples:**
+  
+  ```gsl
+  name P and resname POPE
+  ```
+
+  *Selects atoms named P in residues named POPE.*
+
+  ```gsl
+  serial 256 to 271 && resid 17 18
+  ```
+
+  *Selects atoms with serial numbers between 256 and 271 in residues 17 or 18.*
+
+### Logical OR
+
+- **Operators:** `or` or `||`
+- **Function:** Selects atoms that satisfy **at least one** of the queries. Can be understood as an addition (**+**) operation.
+
+- **Examples:**
+  
+  ```gsl
+  name P or resname POPE
+  ```
+
+  *Selects atoms named P **+** atoms in residues POPE.*
+
+  ```gsl
+  resid 17 18 || serial 256 to 271
+  ```
+
+  *Selects atoms in residues 17 or 18 **+** atoms with serial numbers between 256 and 271.*
+
+### Operator precedence
+
+When combining multiple `and` and `or` operators, GSL evaluates them from **left to right**.
+
+- **Example:**
+  
+  ```gsl
+  resname POPE or name CA and not Protein
+  ```
+
+  *Interpreted as:*  
+  *(resname POPE **or** name CA) **and not** Protein*
+
+  *Selects atoms in residues named POPE **+** atoms named CA **−** (minus) atoms that are part of the "Protein" group.*
+
+### Combining with autodetection macros
+
+You can mix autodetection macros with other queries using logical operators.
+
+- **Example:**
+  
+  ```gsl
+  @membrane or group 'My Lipids'
+  ```
+
+  *Selects all autodetected membrane lipids **+** atoms in the "My Lipids" group.*
+
+# Parentheses
+
+Parentheses allow you to control the evaluation order of your queries.
+
+### Changing evaluation order
+
+Use parentheses to group queries and dictate the sequence of operations.
+
+- **Example:**
+  
+  ```gsl
+  resname POPE or (name CA and not resid 18 to 21)
+  ```
+
+  *Selects atoms in residues named POPE **+** atoms named CA which are not in residues 18 to 21.*
+
+- **Changing the position of parentheses:**
+  
+  ```gsl
+  (name CA or resname POPE) and not resid 18 to 21
+  ```
+
+  *Selects atoms which are either named CA or in residues named POPE, **but are not** in residues 18 to 21.*
+
+### Nested Parentheses
+
+You can nest parentheses to create complex selection logic.
+
+- **Example:**
+  
+  ```gsl
+  serial 1 to 6 or (name CA and resname POPE || (resid 1 to 7 or serial 123 to 128)) and Protein
+  ```
+
+  *A valid, albeit complex, query that combines multiple conditions.*
+
+### Negating Parenthetical Expressions
+
+You can apply negation to entire parenthetical groups.
+
+- **Example:**
+  
+  ```gsl
+  !(serial 1 to 6 && name P)
+  ```
+
+  *Selects atoms that **do not** have serial numbers between 1 and 6 while being named P.*
+
+# Selecting molecules
+
+GSL provides operators to select entire molecules (i.e., groups of bonded atoms) based on specific criteria.
+
+### `molecule with` (or `mol with`) operator
+
+- **Function:** Selects all atoms in the same molecule(s) as the atoms matching the inner query.
+
+- **Syntax:**
+  
+  ```gsl
+  molecule with <query>
+  ```
+
+  *Or:*
+
+  ```gsl
+  mol with <query>
+  ```
+
+- **Examples:**
+  
+  ```gsl
+  molecule with serial 15
+  ```
+
+  *Selects all atoms in the molecule containing the atom with serial number 15.*
+  
+  ```gsl
+  molecule with resid 4 17 29
+  ```
+
+  *Selects all atoms in molecules containing any atom from residues 4, 17, or 29.*
+  
+  ```gsl
+  molecule with name P
+  ```
+
+  *Selects all atoms in molecules that include an atom named P.*
+
+### Operator precedence with `molecule with`
+
+- **Example 1:**
+  
+  ```gsl
+  molecule with serial 15 or name BB
+  ```
+
+  *Selects atoms in the molecule containing serial 15 **+** selects atoms named BB.*
+
+- **Example 2:**
+  
+  ```gsl
+  molecule with (serial 15 or name BB)
+  ```
+
+  *Selects all atoms in molecules that contain either atom 15 **or** any atom named BB.*
+
+
+> **Note:**
+> - **Topology requirement:** The system must contain topology information to use molecule selections. Without it, no atoms will be selected. Topology information is available, for instance, in TPR files and some PDB files.
+
+# Labeling atoms
+
+If atoms are labeled (using [`System::label_atom`](https://docs.rs/groan_rs/latest/groan_rs/system/struct.System.html#method.label_atom)), you can use these labels in your GSL queries.
+
+- **Syntax:**
+  
+  ```gsl
+  label XYZ
+  ```
+
+- **Examples:**
+  
+  ```gsl
+  label MyAtom
+  ```
+
+  *Selects the atom labeled "MyAtom".*
+  
+  ```gsl
+  label MyAtom AnotherAtom OneMoreAtom
+  ```
+
+  *Selects atoms labeled "MyAtom", "AnotherAtom", and "OneMoreAtom".*
+
+### Labels with multiple words
+
+For labels consisting of multiple words, enclose them in quotes.
+
+- **Example:**
+  
+  ```gsl
+  label 'Very interesting atom'
+  ```
+
+  *Selects the atom labeled "Very interesting atom".*
+
+> **Comparison with groups:**  
+> Labels are similar to groups but are guaranteed to contain **only one atom** each.
+
+# Regular expressions
+
+GSL supports the use of regular expressions (regex).
+
+### Using regular expressions
+
+You can apply regex patterns to various identifiers: atom names, residue names, group names, element names, element symbols, and labels.
+
+- **Syntax:**
+  
+  ```gsl
+  identifier r'<pattern>'
+  ```
+
+- **Examples:**
+  
+  ```gsl
+  name r'^[1-9]?H.*'
+  ```
+
+  *Selects all atoms with names matching the regex pattern (typically hydrogen atoms).*
+  
+  ```gsl
+  resname r'^.*PC'
+  ```
+
+  *Selects all residues with names ending in "PC".*
+  
+  ```gsl
+  group r'^P'
+  ```
+
+  *Selects all groups with names starting with 'P'.*
+
+### Combining regular expressions with other identifiers
+
+You can mix regex-based identifiers with standard identifiers in a single query.
+
+- **Examples:**
+  
+  ```gsl
+  name r'^C.*' and resname ALA GLY
+  ```
+
+  *Selects atoms with names starting with 'C' in residues named ALA or GLY.*
+
+  ```gsl
+  name P r'^[1-9]?H.*'
+  ```
+  
+  *Selects atoms named 'P' and hydrogen atoms.*
+
+### Syntax rules
+
+- **Enclosure:**  
+  The regex pattern must be enclosed within a "regular expression block" starting with `r'` and ending with `'`.
+
+- **Case sensitivity:**  
+  Regex patterns are case-sensitive unless specified otherwise within the pattern.
+
+### Supported regex features
+
+GSL uses the `regex` crate for evaluating regular expressions. For detailed information on supported regex features, refer to the [official documentation](https://docs.rs/regex/latest/regex/).
+
+# Important notes
+
+### Selecting Elements
+
+- **Element assignment:**  
+  Atoms in the system **are not** automatically assigned elements by `groan_rs` unless the elements are explicitly specified in the input structure file. *This is because elements may not always be meaningful, particularly in coarse-grained systems.*
+
+- **Using `element` keywords:**  
+  To use `element name` or `element symbol` in your selections, ensure that atoms have been assigned elements.
+
+- **Assigning elements:**
+  - **From topology files:** Creating the `System` structure from a TPR file automatically assigns elements.
+  - **Guessing elements:** Use the [`System::guess_elements`](https://docs.rs/groan_rs/latest/groan_rs/system/struct.System.html#method.guess_elements) function to assign elements based on atom names.
+
+- **Recommendation:**  
+  If you're using a program that utilizes GSL, ensure that it assigns elements to atoms before using `element` keywords in selections.
+
+### Whitespace considerations
+
+- **Operator and parenthesis separation:**  
+  Operators (`and`, `or`, `not`, etc.) and parentheses do **not** need to be separated by whitespace unless it affects query clarity.
+
+- **Valid example:**
+  
+  ```gsl
+  not(name CA)or(serial 1to45||Protein)
+  ```
+  
+  *A valid query without (unnecessary) whitespace.*
+
+- **Invalid example:**
+  
+  ```gsl
+  not(name CA)or(serial 1to45orProtein)
+  ```
+  
+  *Invalid because `orProtein` is unclear.*
+
+- **Resolving ambiguity:**
+  
+  Enclose ambiguous parts in parentheses to clarify intent. **Or use whitespace, it is worth it.**
+  
+  ```gsl
+  not(name CA)or(serial 1to45or(Protein))
+  ```
+  
+  *Now, the query is valid and interpretable, but not very human-readable.*
+# Online GSL validator
+
+You can easily verify the validity of your GSL query using the [online validation tool](https://ladme.github.io/gsl-validator/).
+
+> **Note:** This tool checks only the general syntax of the query. It does not account for the specific context of your molecular system. Queries that reference non-existent groups in your system will still be considered valid syntactically but will fail during execution. The tool focuses solely on syntactical correctness and cannot interpret your intent. For example, the query `resname POPC name P` is syntactically valid but will probably not achieve the desired outcome.# Feedback and disclaimer
+
+Have questions or encountered an issue? Open a [GitHub issue](https://github.com/Ladme/groan_rs/issues) for the `groan_rs` crate or send an email to `ladmeb@gmail.com`.
+
+<div class="warning">
+The groan_rs crate and GSL are currently unstable, and the language may undergo changes in future versions.
+</div>
+
+***
+
+*This guide was largely generated by a large language model (ChatGPT) based on the provided GSL specification.*
+</pre>
